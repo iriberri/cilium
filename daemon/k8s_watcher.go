@@ -1751,6 +1751,7 @@ func (d *Daemon) updateK8sNodeTunneling(k8sNodeOld, k8sNodeNew *types.Node) erro
 		return fmt.Errorf("ipcache entry owned by kvstore or agent")
 	}
 
+	nodeNew.EncryptionKey = hostKey
 	d.nodeDiscovery.Manager.NodeUpdated(*nodeNew)
 
 	return nil
