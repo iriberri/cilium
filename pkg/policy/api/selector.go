@@ -363,10 +363,12 @@ func (s EndpointSelectorSlice) Matches(ctx labels.LabelArray) bool {
 
 // SelectsAllEndpoints returns whether the EndpointSelectorSlice selects all
 // endpoints (if it contains the WildcardEndpointSelector, or if it is empty).
-func (s EndpointSelectorSlice) SelectsAllEndpoints() bool {
+func (s EndpointSelectorSlice) SelectsAllEndpoints(isL3Only ...bool) bool {
 
 	if len(s) == 0 {
-		return true
+		if !(len(isL3Only) > 0 && isL3Only[0]) {
+			return true
+		}
 	}
 
 	for _, selector := range s {

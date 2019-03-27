@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 
 	. "gopkg.in/check.v1"
 )
@@ -81,6 +82,8 @@ func (ds *PolicyTestSuite) SetUpSuite(c *C) {
 
 	c.Assert(epSet.Len(), Equals, 0)
 	c.Assert(len(idSet.IDs), Equals, 1)
+
+	//repo.ResolvePolicy(9001, fooIdentity, DummyOwner{}, identityCache)
 }
 
 func (ds *PolicyTestSuite) TearDownSuite(c *C) {
@@ -151,11 +154,34 @@ type DummyOwner struct{}
 func (d DummyOwner) LookupRedirectPort(l4 *L4Filter) uint16 {
 	return 0
 }
-
-func (ds *PolicyTestSuite) BenchmarkRegeneratePolicyRules(c *C) {
-	c.ResetTimer()
+func (ds *PolicyTestSuite) TestRegeneratePolicyRules(c *C) {
+	fmt.Println("*********************************** TestRegeneratePolicyRules ***********************************")
+	/*c.ResetTimer()
 	for i := 0; i < c.N; i++ {
 		repo.ResolvePolicy(9001, fooIdentity, DummyOwner{}, identityCache)
+	}*/
+
+	fooLabel := labels.NewLabel("k8s:foo", "", "")
+	lbls := labels.Labels{
+		"foo": fooLabel,
+	}
+	lblsArray := lbls.LabelArray()
+	repo := &Repository{}
+	fooIdentity := &identity.Identity{
+		ID:         303,
+		Labels:     lbls,
+		LabelArray: lbls.LabelArray(),
+	}
+	identityCache := cache.IdentityCache{303: lblsArray}
+
+	pol, err := repo.ResolvePolicy(9001, fooIdentity, DummyOwner{}, identityCache)
+	c.Assert(err, IsNil)
+	for k, v := range pol.PolicyMapState {
+		if k.TrafficDirection == trafficdirection.Ingress.Uint8() {
+			fmt.Printf("Ingress L3: id %v L4: %v/%v, ProxyPort: %v\n", k.Identity, k.DestPort, k.Nexthdr, v.ProxyPort)
+		} else {
+			fmt.Printf("Egress L3: id %v L4: %v/%v, ProxyPort: %v\n", k.Identity, k.DestPort, k.Nexthdr, v.ProxyPort)
+		}
 	}
 }
 

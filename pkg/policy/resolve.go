@@ -15,6 +15,8 @@
 package policy
 
 import (
+	"fmt"
+
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -74,12 +76,18 @@ type PolicyOwner interface {
 func getSecurityIdentities(labelsMap cache.IdentityCache, selector *api.EndpointSelector) []identity.NumericIdentity {
 	identities := make([]identity.NumericIdentity, 0, len(labelsMap))
 	for idx, labels := range labelsMap {
+		fmt.Printf("getSecurityIdentities: checking %d --> %v", idx, labels)
 		if selector.Matches(labels) {
 			log.WithFields(logrus.Fields{
 				logfields.IdentityLabels: labels,
 				logfields.L4PolicyID:     idx,
-			}).Debug("L4 Policy matches")
+			}).Info("L4 Policy matches")
 			identities = append(identities, idx)
+		} else {
+			log.WithFields(logrus.Fields{
+				logfields.IdentityLabels: labels,
+				logfields.L4PolicyID:     idx,
+			}).Info("L4 Policy does not match")
 		}
 	}
 

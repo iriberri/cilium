@@ -698,22 +698,6 @@ func (p *Repository) ResolvePolicy(id uint16, securityIdentity *identity.Identit
 
 		calculatedPolicy.CIDRPolicy.Ingress = newCIDRIngressPolicy.Ingress
 		calculatedPolicy.L4Policy.Ingress = newL4IngressPolicy.Ingress
-
-		for identity, labels := range identityCache {
-			ingressCtx.From = labels
-			egressCtx.To = labels
-
-			ingressAccess := matchingRules.canReachIngressRLocked(&ingressCtx)
-			if ingressAccess == api.Allowed {
-				keyToAdd := Key{
-					Identity:         identity.Uint32(),
-					TrafficDirection: trafficdirection.Ingress.Uint8(),
-				}
-				calculatedPolicy.PolicyMapState[keyToAdd] = MapStateEntry{}
-			} else if ingressAccess == api.Denied {
-				calculatedPolicy.DeniedIngressIdentities[identity] = labels
-			}
-		}
 	} else {
 		calculatedPolicy.PolicyMapState.AllowAllIdentities(identityCache, trafficdirection.Ingress)
 	}

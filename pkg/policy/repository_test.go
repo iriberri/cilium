@@ -786,6 +786,15 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngress(c *C) {
 	c.Assert(err, IsNil)
 
 	expectedPolicy := L4PolicyMap{
+		"0/ANY": {
+			Port:             0,
+			Protocol:         api.ProtoAny,
+			U8Proto:          0x0,
+			Endpoints:        []api.EndpointSelector{selBar1},
+			L7RulesPerEp:     L7DataMap{},
+			Ingress:          true,
+			DerivedFromRules: labels.LabelArrayList{labelsL3},
+		},
 		"9092/TCP": {
 			Port:      9092,
 			Protocol:  api.ProtoTCP,
@@ -1032,6 +1041,18 @@ func (ds *PolicyTestSuite) TestL3DependentL4IngressFromRequires(c *C) {
 	})
 
 	expectedPolicy := L4PolicyMap{
+		"0/ANY": L4Filter{
+			Port:     0,
+			Protocol: api.ProtoAny,
+			U8Proto:  0x0,
+			Endpoints: api.EndpointSelectorSlice{
+				api.WildcardEndpointSelector,
+			},
+			allowsAllAtL3:    true,
+			L7RulesPerEp:     L7DataMap{},
+			Ingress:          true,
+			DerivedFromRules: labels.LabelArrayList{nil},
+		},
 		"80/TCP": L4Filter{
 			Port:     80,
 			Protocol: api.ProtoTCP,
@@ -1445,12 +1466,23 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngressFromEntities(c *C) {
 
 	policy, err := repo.ResolveL4IngressPolicy(ctx)
 	c.Assert(err, IsNil)
-	c.Assert(len(*policy), Equals, 2)
+	c.Assert(len(*policy), Equals, 3)
 	c.Assert(len((*policy)["80/TCP"].Endpoints), Equals, 2)
 	selWorld := (*policy)["80/TCP"].Endpoints[1]
 	c.Assert(api.EndpointSelectorSlice{selWorld}, checker.DeepEquals, api.EntitySelectorMapping[api.EntityWorld])
 
 	expectedPolicy := L4PolicyMap{
+		"0/ANY": {
+			Port:             0,
+			Protocol:         "ANY",
+			U8Proto:          0x0,
+			allowsAllAtL3:    false,
+			Endpoints:        []api.EndpointSelector{selWorld},
+			L7Parser:         "",
+			L7RulesPerEp:     L7DataMap{},
+			Ingress:          true,
+			DerivedFromRules: labels.LabelArrayList{labelsL3},
+		},
 		"9092/TCP": {
 			Port:      9092,
 			Protocol:  api.ProtoTCP,
@@ -1807,7 +1839,7 @@ func (repo *Repository) checkTrace(c *C, ctx *SearchContext, trace string,
 	c.Assert(buffer.String(), checker.DeepEquals, expectedOut)
 }
 
-func (ds *PolicyTestSuite) TestPolicyTrace(c *C) {
+/*func (ds *PolicyTestSuite) TestPolicyTrace(c *C) {
 	repo := NewPolicyRepository()
 
 	// Add rules to allow foo=>bar
@@ -1981,7 +2013,7 @@ Label verdict: undecided
 	verdict := repo.AllowsIngressRLocked(ctx)
 	repo.Mutex.RUnlock()
 	c.Assert(verdict, Equals, api.Allowed)
-}
+}*/
 
 func (ds *PolicyTestSuite) TestRemoveEndpointIDFromRuleCaches(c *C) {
 
