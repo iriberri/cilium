@@ -27,12 +27,14 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/vishvananda/netlink"
 
+	"github.com/fsnotify/fsnotify"
 	"github.com/sirupsen/logrus"
 )
 
@@ -53,7 +55,10 @@ type ipSecKey struct {
 
 // ipSecKeysGlobal is safe to read unlocked because the only writers are from
 // daemon init time before any readers will be online.
-var ipSecKeysGlobal = make(map[string]*ipSecKey)
+var (
+	oneKeyWatcher   sync.Once
+	ipSecKeysGlobal = make(map[string]*ipSecKey)
+)
 
 func getIPSecKeys(ip net.IP) *ipSecKey {
 	key, scoped := ipSecKeysGlobal[ip.String()]
@@ -340,6 +345,35 @@ func LoadIPSecKeysFile(path string) (uint8, error) {
 		return 0, err
 	}
 	defer file.Close()
+	oneKeyWatcher.Do(func() {
+		scopedLog := log.WithFields(logrus.Fields{
+			"keyFile": path,
+		})
+
+		watcher, err := fsnotify.NewWatcher()
+		if err != nil {
+			scopedLog.WithError(err).Warning("unable to create IPsec key file watcher: %s", err)
+			return
+		}
+
+		defer watcher.Close()
+
+		if err := watcher.Add(path); err != nil {
+			scopedLog.WithError(err).Warning("unable to add IPsec key to watcher: %s", err)
+			return
+		}
+
+		go func() {
+			for {
+				select {
+				case event := <-watcher.Events:
+					if event.Op == fsnotify.Write {
+						LoadIPSecKeysFile(path)
+					}
+				}
+			}
+		}()
+	})
 	return loadIPSecKeys(file)
 }
 
